@@ -58,7 +58,7 @@
       margin: 0 4px;
       border-radius: 50%;
       box-shadow: 0 0 0 10px rgba(0, 180, 216, 0.1),
-                  0 0 20px var(--accent),
+                  0 极0 20px var(--accent),
                   0 0 40px var(--accent);
       animation: animate 15s linear infinite;
       animation-duration: calc(125s / var(--i));
@@ -228,6 +228,7 @@
       display: flex;
       justify-content: space-around;
       margin-bottom: 15px;
+      flex-wrap: wrap;
     }
     
     .feature {
@@ -236,6 +237,7 @@
       border-radius: 8px;
       transition: all 0.3s ease;
       cursor: default;
+      min-width: 100px;
     }
     
     .feature:hover {
@@ -313,12 +315,16 @@
       }
       
       .features {
-        flex-direction: column;
+        flex-direction: row;
         gap: 10px;
       }
       
       .floating-aircraft {
         font-size: 3rem;
+      }
+      
+      .feature {
+        min-width: 80px;
       }
     }
   </style>
@@ -390,7 +396,49 @@
     </div>
   </div>
   
-  <script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDAy7_BMNnjzVbzff7OhaIF1EgeqMwSNJM",
+      authDomain: "washms-d671a.firebaseapp.com",
+      databaseURL: "https://washms-d671a-default-rtdb.firebaseio.com",
+      projectId: "washms-d671a",
+      storageBucket: "washms-d671a.appspot.com",
+      messagingSenderId: "483267348948",
+      appId: "1:483267348948:web:65cca888caa2f2dea92e41"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    document.getElementById('loginForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const error = document.getElementById('error');
+
+      // Clear error message
+      error.style.display = 'none';
+
+      signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+          // Redirect to dashboard on successful login
+          window.location.href = 'dashboard.html';
+        })
+        .catch((error) => {
+          console.error(error);
+          document.getElementById('error').style.display = 'block';
+          
+          // Add shake animation to form
+          document.querySelector('.login-container').style.animation = 'shake 0.5s';
+          setTimeout(() => {
+            document.querySelector('.login-container').style.animation = '';
+          }, 500);
+        });
+    });
+
     // Create animated particles
     const particlesContainer = document.querySelector('.particles');
     const particlesCount = 15;
@@ -401,40 +449,6 @@
       span.style.left = Math.random() * 100 + '%';
       particlesContainer.appendChild(span);
     }
-    
-    // Form submission handler
-    document.getElementById('loginForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const error = document.getElementById('error');
-      
-      // Clear error message
-      error.style.display = 'none';
-      
-      // Simple validation
-      if (email === 'admin@washms.com' && password === 'password') {
-        // Simulate login success
-        document.querySelector('.login-container').style.opacity = '0';
-        document.querySelector('.login-container').style.transform = 'translateY(-20px)';
-        
-        setTimeout(() => {
-          alert('Login successful! Redirecting to dashboard...');
-          // In a real app, you would redirect to the dashboard page
-          // window.location.href = 'dashboard.html';
-        }, 500);
-      } else {
-        // Show error message
-        error.style.display = 'block';
-        document.getElementById('password').value = '';
-        
-        // Add shake animation to form
-        document.querySelector('.login-container').style.animation = 'shake 0.5s';
-        setTimeout(() => {
-          document.querySelector('.login-container').style.animation = '';
-        }, 500);
-      }
-    });
     
     // Add shake animation to CSS
     const style = document.createElement('style');
