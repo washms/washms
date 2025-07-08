@@ -182,8 +182,8 @@
       margin-bottom: 30px;
     }
 
-    /* Make resistance card wider */
-    .resistance-card {
+    /* Make resistance and corrosion cards wider */
+    .resistance-card, .corrosion-card {
       grid-column: span 2;
     }
 
@@ -485,7 +485,7 @@
         grid-template-columns: repeat(3, 1fr);
       }
 
-      .resistance-card {
+      .resistance-card, .corrosion-card {
         grid-column: span 1;
       }
     }
@@ -520,7 +520,7 @@
         gap: 15px;
       }
 
-      .resistance-card {
+      .resistance-card, .corrosion-card {
         grid-column: span 1;
       }
 
@@ -722,6 +722,25 @@
           <span id="resistance-status">Status: Sensor Disconnected</span>
         </div>
       </div>
+
+      <!-- Corrosion Monitoring Card (new) -->
+      <div class="card">
+        <h2 class="card-title"><i class="fas fa-rust"></i> Corrosion Monitoring</h2>
+        <div class="data-display">
+          <div class="data-value disconnected" id="corrosion-value">--.--</div>
+          <div class="data-label">% Change from Initial</div>
+        </div>
+        <div class="gauge-container">
+          <div class="gauge-fill disconnected" id="corrosion-gauge" style="width: 0%"></div>
+        </div>
+        <div class="status-indicator-card">
+          <div class="status-dot disconnected" id="corrosion-indicator"></div>
+          <span id="corrosion-status">Status: Sensor Disconnected</span>
+        </div>
+        <div style="text-align: center; margin-top: 10px; font-size: 0.9rem; color: var(--accent-light);">
+          <span id="initial-resistance">Initial resistance: --.-- Ω</span>
+        </div>
+      </div>
     </div>
 
     <div class="graphs-section">
@@ -813,6 +832,7 @@
     let lastHeartbeatValue = 0;
     let lastHeartbeatTime = 0;
     let deviceOnline = false;
+    let initialResistance = null;
 
     // Notification element
     const notification = document.getElementById('notification');
@@ -952,6 +972,49 @@
             updateChart(key, num);
           }
         });
+
+        // Handle corrosion calculation when resistance data is available
+        if (all.resistance && all.resistance.value) {
+          const currentResistance = parseFloat(all.resistance.value);
+          if (!isNaN(currentResistance)) {
+            // Set initial resistance if not set
+            if (initialResistance === null) {
+              initialResistance = currentResistance;
+              document.getElementById('initial-resistance').textContent = `Initial resistance: ${initialResistance.toFixed(2)} Ω`;
+            }
+
+            // Calculate corrosion percentage
+            const corrosionPct = ((currentResistance - initialResistance) / currentResistance) * 100;
+
+            // Update corrosion display
+            const corrosionValueEl = document.getElementById('corrosion-value');
+            const corrosionGaugeEl = document.getElementById('corrosion-gauge');
+            const corrosionStatusEl = document.getElementById('corrosion-status');
+            const corrosionDotEl = document.getElementById('corrosion-indicator');
+
+            corrosionValueEl.textContent = corrosionPct.toFixed(2);
+
+            // Determine corrosion status
+            let statusClass = "normal";
+            let statusText = "Normal";
+
+            if (Math.abs(corrosionPct) > 10) {
+              statusClass = "warning";
+              statusText = "Warning";
+            }
+            if (Math.abs(corrosionPct) > 20) {
+              statusClass = "critical";
+              statusText = "Critical";
+            }
+
+            // Update UI elements
+            corrosionValueEl.className = "data-value " + statusClass;
+            corrosionGaugeEl.className = "gauge-fill " + statusClass;
+            corrosionGaugeEl.style.width = Math.min(100, Math.abs(corrosionPct)) + "%";
+            corrosionStatusEl.textContent = `Status: ${statusText}`;
+            corrosionDotEl.className = "status-dot " + statusClass;
+          }
+        }
       }, err => {
         console.error("Sensors listener error:", err);
         showNotification('Error retrieving sensor data!', 'error');
