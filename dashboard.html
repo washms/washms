@@ -801,7 +801,7 @@
     <div id="notification-message">Connecting to Firebase...</div>
   </div>
 
-  <script>
+   <script>
     // Firebase configuration & init
     const firebaseConfig = {
       apiKey: "AIzaSyDAy7_BMNnjzVbzff7OhaIF1EgeqMwSNJM",
@@ -833,6 +833,9 @@
     let lastHeartbeatTime = 0;
     let deviceOnline = false;
     let initialResistance = null;
+    let initialHeartbeatValue = null;
+    let hasChanged = false;
+    let extremeCondition = false;
 
     // Notification element
     const notification = document.getElementById('notification');
@@ -893,40 +896,92 @@
 
     function monitorHeartbeat() {
       let lastOnlineState = null;
+      let heartbeatCheckInterval;
 
       // Listen for heartbeat value changes
       db.ref("heartbeat").on("value", snap => {
         const hb = snap.val();
         const now = Date.now();
 
+        // Set initial value on first connection
+        if (initialHeartbeatValue === null) {
+          initialHeartbeatValue = hb;
+          lastHeartbeatValue = hb;
+          lastHeartbeatTime = now;
+
+          // Start checking for changes every 5 seconds
+          clearInterval(heartbeatCheckInterval);
+          heartbeatCheckInterval = setInterval(() => {
+            checkHeartbeatStatus();
+          }, 5000);
+          return;
+        }
+
         // Only update if the value has changed
         if (hb !== lastHeartbeatValue) {
           lastHeartbeatValue = hb;
           lastHeartbeatTime = now;
+          hasChanged = true;
+        }
+      });
+
+      // Listen for critical-blink status changes
+      db.ref("sensors").on("value", snap => {
+        const sensors = snap.val() || {};
+        extremeCondition = false;
+
+        // Check all sensors for critical-blink status
+        for (const sensor in sensors) {
+          if (sensors[sensor].status === "critical-blink") {
+            extremeCondition = true;
+            break;
+          }
         }
 
-        // Check if the device is online
-        const diff = (now - lastHeartbeatTime) / 1000; // Time difference in seconds
-        const nowOnline = diff < 5; // 5-second threshold
+        // Trigger status check immediately when extreme condition changes
+        if (extremeCondition) {
+          checkHeartbeatStatus();
+        }
+      });
 
-        // Update UI only if status changed
+      function checkHeartbeatStatus() {
+        const now = Date.now();
+        const diff = (now - lastHeartbeatTime) / 1000; // in seconds
+
+        // The device is online if either:
+        //   a) The heartbeat has changed from the initial and the last change was within 5 seconds, OR
+        //   b) There is an extreme condition (critical-blink) in any sensor.
+        const nowOnline = (hasChanged && diff < 5) || extremeCondition;
+
+        // Update the UI if the status changed
         if (nowOnline !== deviceOnline || lastOnlineState === null) {
           deviceOnline = nowOnline;
           lastOnlineState = deviceOnline;
 
-          const status = deviceOnline ? "Online" : "Offline";
-          const dotClass = deviceOnline ? "normal" : "critical";
+          let status, dotClass;
+          if (extremeCondition) {
+            status = "Online (Extreme)";
+            dotClass = "critical-blink";
+          } else if (deviceOnline) {
+            status = "Online";
+            dotClass = "normal";
+          } else {
+            status = "Offline";
+            dotClass = "critical";
+          }
 
           document.getElementById("system-status").textContent = `System Status: ${status}`;
           document.getElementById("system-status-dot").className = "status-dot " + dotClass;
 
-          if(!deviceOnline) {
-            showNotification('Device is offline! No recent heartbeat.', 'error', 5000);
+          if (!deviceOnline) {
+            showNotification('Device is offline! No heartbeat change detected.', 'error', 5000);
+          } else if (extremeCondition) {
+            showNotification('Extreme condition detected! Forcing online status.', 'error', 5000);
           } else {
-            showNotification('Device is back online!', 'success', 3000);
+            showNotification('Device is online! Heartbeat detected.', 'success', 3000);
           }
         }
-      });
+      }
     }
 
     function monitorSensors() {
@@ -1192,7 +1247,7 @@
       } else {
         gradient = chart.ctx.createLinearGradient(0, 0, 0, 300);
         gradient.addColorStop(0, 'rgba(248, 113, 113, 0.8)');
-        gradient.addColorStop(1, 'rgba(248, 113, 113, 0.1)');
+        gradient.addColorStop(1, '极ga(248, 113, 113, 0.1)');
         chart.data.datasets[0].borderColor = 'var(--danger)';
       }
 
