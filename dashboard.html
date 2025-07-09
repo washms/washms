@@ -37,6 +37,7 @@
       padding: 20px;
       position: relative;
       overflow-x: hidden;
+      text-align: center;
     }
 
     /* Animated Background Elements */
@@ -69,13 +70,13 @@
       box-shadow: 0 0 0 10px rgba(0, 180, 216, 0.1),
                   0 0 20px var(--accent),
                   0 0 40px var(--accent);
-      animation: animate 15极s linear infinite;
+      animation: animate 15s linear infinite;
       animation-duration: calc(125s / var(--i));
     }
 
     .particles span:nth-child(even) {
       background: var(--accent-light);
-      box-shadow: 0 极0 0 10px rgba(144, 224, 239, 0.1),
+      box-shadow: 0 0 0 10px rgba(144, 224, 239, 0.1),
                   0 0 20px var(--accent-light),
                   0 0 40px var(--accent-light);
     }
@@ -133,6 +134,7 @@
       gap: 8px;
       font-size: 1.1rem;
       font-weight: 500;
+      justify-content: center;
     }
 
     .status-dot {
@@ -155,7 +157,7 @@
 
     .status-dot.critical {
       background-color: var(--danger);
-      box-shadow: 0 0 10px var(--danger);
+      box-shadow: 极0 0 10px var(--danger);
       animation: pulse 1.5s infinite;
     }
 
@@ -180,6 +182,7 @@
       grid-template-columns: repeat(4, 1fr);
       gap: 25px;
       margin-bottom: 30px;
+      justify-items: center;
     }
 
     /* Make resistance and corrosion cards wider */
@@ -195,6 +198,8 @@
       border: 1px solid rgba(0, 180, 216, 0.2);
       backdrop-filter: blur(4px);
       transition: transform 0.3s ease, box-shadow 0.3s ease;
+      text-align: center;
+      width: 100%;
     }
 
     .card:hover {
@@ -209,6 +214,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      justify-content: center;
     }
 
     .card-title i {
@@ -219,6 +225,9 @@
     .data-display {
       text-align: center;
       margin: 15px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .data-value {
@@ -267,7 +276,7 @@
       height: 20px;
       background: rgba(255, 255, 255, 0.1);
       border-radius: 10px;
-      margin: 20px 0;
+      margin: 20px auto;
       overflow: hidden;
     }
 
@@ -315,6 +324,7 @@
       gap: 8px;
       margin-top: 15px;
       font-size: 1rem;
+      justify-content: center;
     }
 
     .graphs-section {
@@ -322,15 +332,18 @@
       grid-template-columns: repeat(2, 1fr);
       gap: 25px;
       margin-bottom: 30px;
+      justify-items: center;
     }
 
     .graph-card {
       background: var(--card-bg);
-      border-radius: 15px;
+      border-radius: 15极px;
       padding: 25px;
       box-shadow: 0 8px 32px rgba(0, 46, 92, 0.3);
       border: 1px solid rgba(0, 180, 216, 0.2);
       backdrop-filter: blur(4px);
+      width: 100%;
+      text-align: center;
     }
 
     .graph-title {
@@ -340,11 +353,13 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      justify-content: center;
     }
 
     .chart-container {
       height: 300px;
       position: relative;
+      margin: 0 auto;
     }
 
     .log-section {
@@ -355,6 +370,7 @@
       border: 1px solid rgba(0, 180, 216, 0.2);
       backdrop-filter: blur(4px);
       margin-bottom: 30px;
+      text-align: center;
     }
 
     .log-header {
@@ -362,6 +378,9 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
     }
 
     .log-title {
@@ -376,12 +395,17 @@
       background: rgba(0, 30, 60, 0.7);
       border-radius: 10px;
       font-size: 0.9rem;
+      text-align: center;
     }
 
     .log-entry {
       margin-bottom: 10px;
       padding-bottom: 10px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     .log-timestamp {
@@ -569,7 +593,7 @@
       .log-header {
         flex-direction: column;
         gap: 10px;
-        align-items: flex-start;
+        align-items: center;
       }
 
       .btn {
@@ -591,7 +615,7 @@
       <i class="fas fa-satellite"></i>
     </div>
     <div class="floating-aircraft" style="top: 70%; left: -15%; animation-delay: 7s; animation-duration: 30s;">
-      <i class="fas fa-rocket"></i>
+      <i class="fas fa-rocket"></极i>
     </div>
   </div>
 
@@ -733,7 +757,7 @@
         <div class="gauge-container">
           <div class="gauge-fill disconnected" id="corrosion-gauge" style="width: 0%"></div>
         </div>
-        <div class极="status-indicator-card">
+        <div class="status-indicator-card">
           <div class="status-dot disconnected" id="corrosion-indicator"></div>
           <span id="corrosion-status">Status: Sensor Disconnected</span>
         </div>
