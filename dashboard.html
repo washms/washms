@@ -64,11 +64,11 @@
       width: 30px;
       height: 30px;
       background: var(--accent);
-      margin: 0 4px;
+      margin: 0 4极;
       border-radius: 50%;
       box-shadow: 0 0 0 10px rgba(0, 180, 216, 0.1),
                   0 0 20px var(--accent),
-                  0 0 40极 var(--accent);
+                  0 0 40px var(--accent);
       animation: animate 15s linear infinite;
       animation-duration: calc(125s / var(--i));
     }
@@ -159,7 +159,7 @@
       animation: pulse 1.5s infinite;
     }
 
-    .status-d极ot.critical-blink {
+    .status-dot.critical-blink {
       background-color: var(--critical-blink);
       box-shadow: 0 0 10px var(--critical-blink);
       animation: blink 0.5s infinite;
@@ -325,7 +325,7 @@
     }
 
     .graph-card {
-      background: var(--card-bg);
+      background: var(--card极g);
       border-radius: 15px;
       padding: 25px;
       box-shadow: 0 8px 32px rgba(0, 46, 92, 0.3);
@@ -631,7 +631,7 @@
       <div class="card">
         <h2 class="card-title"><i class="fas fa-viruses"></i> Vibration</h2>
         <div class="data-display">
-          <div class极="data-value disconnected" id="vibration-value">--.--</div>
+          <div class="data-value disconnected" id="vibration-value">--.--</div>
           <div class="data-label">Intensity Level (1-5)</div>
         </div>
         <div class="gauge-container">
@@ -651,7 +651,7 @@
           <div class="data-label">°C</div>
         </div>
         <div class="gauge-container">
-          <div class="gauge-fill disconnected" id="temperature-gauge" style="width: 0%"></div>
+          <div class="gauge-fill disconnected" id="temperature-gauge" style="width: 0%"></极div>
         </div>
         <div class="status-indicator-card">
           <div class="status-dot disconnected" id="temperature-indicator"></div>
@@ -925,14 +925,14 @@
         }
       });
 
-      // Listen for critical-blink status changes
+      // Listen for extreme status changes
       db.ref("sensors").on("value", snap => {
         const sensors = snap.val() || {};
         extremeCondition = false;
 
-        // Check all sensors for critical-blink status
+        // Check all sensors for extreme status
         for (const sensor in sensors) {
-          if (sensors[sensor].status === "critical-blink") {
+          if (sensors[sensor].status === "extreme") {
             extremeCondition = true;
             break;
           }
@@ -950,7 +950,7 @@
 
         // The device is online if either:
         //   a) The heartbeat has changed from the initial and the last change was within 5 seconds, OR
-        //   b) There is an extreme condition (critical-blink) in any sensor.
+        //   b) There is an extreme condition in any sensor.
         const nowOnline = (hasChanged && diff < 5) || extremeCondition;
 
         // Update the UI if the status changed
@@ -1001,7 +1001,14 @@
 
           // Update value
           valueEl.textContent = isNum ? num.toFixed(2) : String(raw || "--.--");
-          statusTextEl.textContent = `Status: ${data.status || "unknown"}`;
+
+          // Determine status display text
+          let displayStatus = "unknown";
+          if (data.status) {
+            // Capitalize first letter for display
+            displayStatus = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+          }
+          statusTextEl.textContent = `Status: ${displayStatus}`;
 
           // Determine status class
           let statusClass = "disconnected";
@@ -1010,7 +1017,7 @@
             if (statusLower === "normal") statusClass = "normal";
             else if (statusLower === "warning") statusClass = "warning";
             else if (statusLower === "critical") statusClass = "critical";
-            else if (statusLower === "critical-blink") statusClass = "critical-blink";
+            else if (statusLower === "extreme") statusClass = "critical-blink"; // Map to CSS class
           }
 
           // Update UI elements based on status
@@ -1247,7 +1254,7 @@
       } else {
         gradient = chart.ctx.createLinearGradient(0, 0, 0, 300);
         gradient.addColorStop(0, 'rgba(248, 113, 113, 0.8)');
-        gradient.addColorStop(1, '极ga(248, 113, 113, 0.1)');
+        gradient.addColorStop(1, 'rgba(248, 113, 113, 0.1)');
         chart.data.datasets[0].borderColor = 'var(--danger)';
       }
 
