@@ -732,7 +732,7 @@
         <h2 class="card-title"><i class="fas fa-bolt"></i> Current</h2>
         <div class="data-display">
           <div class="data-value disconnected" id="current-value">--.--</div>
-          <div class="data-label">Amperes (A)</div>
+          <div class="data-label">Amperes (mA)</div>
         </div>
         <div class="gauge-container">
           <div class="gauge-fill disconnected" id="current-gauge" style="width: 0%"></div>
@@ -854,12 +854,12 @@
     // Settings
     const sensors = ["strain","vibration","temperature","humidity","voltage","current","resistance"];
     const maxGauge = {
-      strain: 1000,
+      strain: 100,
       vibration: 5,
       temperature: 100,
       humidity: 100,
       voltage: 5,
-      current: 1,
+      current: 200,
       resistance: 10  // Changed to 3Ω as requested
     };
     const chartData = { vibration:[], temperature:[], humidity:[], resistance:[] };
