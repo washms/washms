@@ -837,466 +837,267 @@
     <div id="notification-message">Connecting to Firebase...</div>
   </div>
 
-   <script>
-    // Firebase configuration & init
-    const firebaseConfig = {
-      apiKey: "AIzaSyDAy7_BMNnjzVbzff7OhaIF1EgeqMwSNJM",
-      authDomain: "washms-d671a.firebaseapp.com",
-      databaseURL: "https://washms-d671a-default-rtdb.firebaseio.com",
-      projectId: "washms-d671a",
-      storageBucket: "washms-d671a.appspot.com",
-      messagingSenderId: "483267348948",
-      appId: "1:483267348948:web:65cca888caa2f2dea92e41"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+ <script>
+  // Firebase configuration & init
+  const firebaseConfig = {
+    apiKey: "AIzaSyDAy7_BMNnjzVbzff7OhaIF1EgeqMwSNJM",
+    authDomain: "washms-d671a.firebaseapp.com",
+    databaseURL: "https://washms-d671a-default-rtdb.firebaseio.com",
+    projectId: "washms-d671a",
+    storageBucket: "washms-d671a.appspot.com",
+    messagingSenderId: "483267348948",
+    appId: "1:483267348948:web:65cca888caa2f2dea92e41"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-    // Settings
-    const sensors = ["strain","vibration","temperature","humidity","voltage","current","resistance"];
-    const maxGauge = {
-      strain: 100,
-      vibration: 5,
-      temperature: 100,
-      humidity: 100,
-      voltage: 5,
-      current: 200,
-      resistance: 10  // Changed to 3Ω as requested
-    };
-    const chartData = { vibration:[], temperature:[], humidity:[], resistance:[] };
-    const charts = {};
-    const maxPoints = 20;
-    let lastHeartbeatValue = 0;
-    let lastHeartbeatTime = 0;
-    let deviceOnline = false;
-    let initialResistance = null;
-    let initialHeartbeatValue = null;
-    let hasChanged = false;
-    let extremeCondition = false;
+  // Settings
+  const sensors = ["strain","vibration","temperature","humidity","voltage","current","resistance"];
+  const maxGauge = {
+    strain: 100,
+    vibration: 5,
+    temperature: 100,
+    humidity: 100,
+    voltage: 5,
+    current: 200,
+    resistance: 10
+  };
+  const chartData = { vibration:[], temperature:[], humidity:[], resistance:[] };
+  const charts = {};
+  const maxPoints = 20;
+  let lastHeartbeatValue = 0;
+  let lastHeartbeatTime = 0;
+  let deviceOnline = false;
+  let initialHeartbeatValue = null;
+  let hasChanged = false;
+  let initialResistance = null;
 
-    // Notification element
-    const notification = document.getElementById('notification');
-    const notificationMessage = document.getElementById('notification-message');
+  // Notification element refs
+  const notification = document.getElementById('notification');
+  const notificationMessage = document.getElementById('notification-message');
 
-    // Show notification function
-    function showNotification(message, type = 'success', duration = 3000) {
-      notificationMessage.textContent = message;
-      notification.className = `notification ${type} show`;
-      setTimeout(() => {
-        notification.classList.remove('show');
-      }, duration);
+  function showNotification(message, type = 'success', duration = 3000) {
+    notificationMessage.textContent = message;
+    notification.className = `notification ${type} show`;
+    setTimeout(() => notification.classList.remove('show'), duration);
+  }
+
+  window.addEventListener("load", () => {
+    createParticles();
+    monitorConnection();
+    monitorHeartbeat();
+    monitorSensors();
+    monitorLogs();
+    setupDownload();
+    initCharts();
+
+    showNotification('Dashboard initialized. Connecting to Firebase...', 'success', 2500);
+  });
+
+  function createParticles() {
+    const container = document.querySelector('.particles');
+    for (let i = 0; i < 15; i++) {
+      const span = document.createElement('span');
+      span.style.setProperty('--i', Math.floor(Math.random() * 10 + 5));
+      span.style.left = Math.random() * 100 + '%';
+      container.appendChild(span);
     }
+  }
 
-    window.addEventListener("load", () => {
-      createParticles();
-      monitorConnection();
-      monitorHeartbeat();
-      monitorSensors();
-      monitorLogs();
-      setupDownload();
-      initCharts();
+  function monitorConnection() {
+    db.ref(".info/connected").on("value", snap => {
+      const ok = snap.val();
+      document.getElementById("firebase-status").textContent = ok ? "Firebase: Connected" : "Firebase: Disconnected";
+      document.getElementById("firebase-status-dot").className = "status-dot " + (ok ? "normal" : "critical");
 
-      // Show initial notification
-      showNotification('Dashboard initialized. Connecting to Firebase...', 'success', 2500);
-    });
-
-    function createParticles() {
-      const particlesContainer = document.querySelector('.particles');
-      const particlesCount = 15;
-
-      for (let i = 0; i < particlesCount; i++) {
-        const span = document.createElement('span');
-        span.style.setProperty('--i', Math.floor(Math.random() * 10 + 5));
-        span.style.left = Math.random() * 100 + '%';
-        particlesContainer.appendChild(span);
-      }
-    }
-
-    function monitorConnection() {
-      db.ref(".info/connected").on("value", s => {
-        const ok = s.val();
-        document.getElementById("firebase-status").textContent = ok?"Firebase: Connected":"Firebase: Disconnected";
-        document.getElementById("firebase-status-dot").className = "status-dot " + (ok?"normal":"critical");
-
-        // Update system message
-        const systemMsg = document.getElementById('system-message');
-        if(ok) {
-          systemMsg.textContent = "System operational. Monitoring aircraft structure...";
-          systemMsg.style.color = "var(--success)";
-        } else {
-          systemMsg.textContent = "System disconnected. Check network connection...";
-          systemMsg.style.color = "var(--danger)";
-          showNotification('Connection to Firebase lost!', 'error');
-        }
-      });
-    }
-
-    function monitorHeartbeat() {
-      let lastOnlineState = null;
-      let heartbeatCheckInterval;
-
-      // Listen for heartbeat value changes
-      db.ref("heartbeat").on("value", snap => {
-        const hb = snap.val();
-        const now = Date.now();
-
-        // Set initial value on first connection
-        if (initialHeartbeatValue === null) {
-          initialHeartbeatValue = hb;
-          lastHeartbeatValue = hb;
-          lastHeartbeatTime = now;
-
-          // Start checking for changes every 5 seconds
-          clearInterval(heartbeatCheckInterval);
-          heartbeatCheckInterval = setInterval(() => {
-            checkHeartbeatStatus();
-          }, 5000);
-          return;
-        }
-
-        // Only update if the value has changed
-        if (hb !== lastHeartbeatValue) {
-          lastHeartbeatValue = hb;
-          lastHeartbeatTime = now;
-          hasChanged = true;
-        }
-      });
-
-      // Listen for extreme status changes
-      db.ref("sensors").on("value", snap => {
-        const sensors = snap.val() || {};
-        extremeCondition = false;
-
-        // Check all sensors for extreme status
-        for (const sensor in sensors) {
-          if (sensors[sensor].status === "extreme") {
-            extremeCondition = true;
-            break;
-          }
-        }
-
-        // Trigger status check immediately when extreme condition changes
-        if (extremeCondition) {
-          checkHeartbeatStatus();
-        }
-      });
-
-      function checkHeartbeatStatus() {
-        const now = Date.now();
-        const diff = (now - lastHeartbeatTime) / 1000; // in seconds
-
-        // The device is online if either:
-        //   a) The heartbeat has changed from the initial and the last change was within 5 seconds, OR
-        //   b) There is an extreme condition in any sensor.
-        const nowOnline = (hasChanged && diff < 5) || extremeCondition;
-
-        // Update the UI if the status changed
-        if (nowOnline !== deviceOnline || lastOnlineState === null) {
-          deviceOnline = nowOnline;
-          lastOnlineState = deviceOnline;
-
-          let status, dotClass;
-          if (extremeCondition) {
-            status = "Online (Extreme)";
-            dotClass = "critical-blink";
-          } else if (deviceOnline) {
-            status = "Online";
-            dotClass = "normal";
-          } else {
-            status = "Offline";
-            dotClass = "critical";
-          }
-
-          document.getElementById("system-status").textContent = `System Status: ${status}`;
-          document.getElementById("system-status-dot").className = "status-dot " + dotClass;
-
-          if (!deviceOnline) {
-            showNotification('Device is offline! No heartbeat change detected.', 'error', 5000);
-          } else if (extremeCondition) {
-            showNotification('Extreme condition detected! Forcing online status.', 'error', 5000);
-          } else {
-            showNotification('Device is online! Heartbeat detected.', 'success', 3000);
-          }
-        }
-      }
-    }
-
-    function monitorSensors() {
-      db.ref("sensors").on("value", snap => {
-        const all = snap.val() || {};
-        sensors.forEach(key => {
-          const data = all[key] || {};
-          const raw = data.value;
-          const num = parseFloat(raw);
-          const isNum = !isNaN(num);
-
-          // Get elements
-          const valueEl = document.getElementById(`${key}-value`);
-          const gaugeEl = document.getElementById(`${key}-gauge`);
-          const statusTextEl = document.getElementById(`${key}-status`);
-          const statusDotEl = document.getElementById(`${key}-indicator`);
-
-          // Update value
-          valueEl.textContent = isNum ? num.toFixed(2) : String(raw || "--.--");
-
-          // Determine status display text
-          let displayStatus = "unknown";
-          if (data.status) {
-            // Capitalize first letter for display
-            displayStatus = data.status.charAt(0).toUpperCase() + data.status.slice(1);
-          }
-          statusTextEl.textContent = `Status: ${displayStatus}`;
-
-          // Determine status class
-          let statusClass = "disconnected";
-          if (data.status) {
-            const statusLower = data.status.toLowerCase();
-            if (statusLower === "normal") statusClass = "normal";
-            else if (statusLower === "warning") statusClass = "warning";
-            else if (statusLower === "critical") statusClass = "critical";
-            else if (statusLower === "extreme") statusClass = "critical-blink"; // Map to CSS class
-          }
-
-          // Update UI elements based on status
-          valueEl.className = "data-value " + statusClass;
-          gaugeEl.className = "gauge-fill " + statusClass;
-          statusDotEl.className = "status-dot " + statusClass;
-
-          // Fill gauge if numeric
-          const pct = isNum ? Math.min(100, Math.abs(num) / maxGauge[key] * 100) : 0;
-          gaugeEl.style.width = pct + "%";
-
-          // Update charts for relevant sensors
-          if (chartData[key] !== undefined && isNum) {
-            updateChart(key, num);
-          }
-        });
-
-        // Handle corrosion calculation when resistance data is available
-        if (all.resistance && all.resistance.value) {
-          const currentResistance = parseFloat(all.resistance.value);
-          if (!isNaN(currentResistance)) {
-            // Set initial resistance if not set
-            if (initialResistance === null) {
-              initialResistance = currentResistance;
-              document.getElementById('initial-resistance').textContent = `Initial resistance: ${initialResistance.toFixed(2)} Ω`;
-            }
-
-            // Calculate corrosion percentage
-            const corrosionPct = ((currentResistance - initialResistance) / currentResistance) * 100;
-
-            // Update corrosion display
-            const corrosionValueEl = document.getElementById('corrosion-value');
-            const corrosionGaugeEl = document.getElementById('corrosion-gauge');
-            const corrosionStatusEl = document.getElementById('corrosion-status');
-            const corrosionDotEl = document.getElementById('corrosion-indicator');
-
-            corrosionValueEl.textContent = corrosionPct.toFixed(2);
-
-            // Determine corrosion status
-            let statusClass = "normal";
-            let statusText = "Normal";
-
-            if (Math.abs(corrosionPct) > 10) {
-              statusClass = "warning";
-              statusText = "Warning";
-            }
-            if (Math.abs(corrosionPct) > 20) {
-              statusClass = "critical";
-              statusText = "Critical";
-            }
-
-            // Update UI elements
-            corrosionValueEl.className = "data-value " + statusClass;
-            corrosionGaugeEl.className = "gauge-fill " + statusClass;
-            corrosionGaugeEl.style.width = Math.min(100, Math.abs(corrosionPct)) + "%";
-            corrosionStatusEl.textContent = `Status: ${statusText}`;
-            corrosionDotEl.className = "status-dot " + statusClass;
-          }
-        }
-      }, err => {
-        console.error("Sensors listener error:", err);
-        showNotification('Error retrieving sensor data!', 'error');
-      });
-    }
-
-    function monitorLogs() {
-      db.ref("logs").on("value", snap => {
-        const logs = snap.val() || {};
-        const c = document.getElementById("logs");
-        c.innerHTML = "";
-
-        Object.keys(logs).sort((a, b) => b - a).slice(0, 50).forEach(k => {
-          const e = document.createElement("div");
-          e.className = "log-entry";
-
-          const timestamp = document.createElement("span");
-          timestamp.className = "log-timestamp";
-          timestamp.textContent = new Date(parseInt(k)).toLocaleTimeString();
-
-          const message = document.createElement("span");
-          message.className = "log-message";
-          message.textContent = logs[k];
-
-          // Add icon based on log type
-          const icon = document.createElement("i");
-          icon.className = "fas";
-
-          if (logs[k].includes("✅")) {
-            icon.className += " fa-check-circle";
-            icon.style.color = "var(--success)";
-          } else if (logs[k].includes("⚠️")) {
-            icon.className += " fa-exclamation-triangle";
-            icon.style.color = "var(--warning)";
-          } else if (logs[k].includes("🚨")) {
-            icon.className += " fa-bell";
-            icon.style.color = "var(--danger)";
-          } else if (logs[k].includes("📱")) {
-            icon.className += " fa-comment-alt";
-            icon.style.color = "var(--accent)";
-          }
-
-          e.appendChild(icon);
-          e.appendChild(document.createTextNode(" "));
-          e.appendChild(timestamp);
-          e.appendChild(document.createTextNode(" - "));
-          e.appendChild(message);
-          c.appendChild(e);
-        });
-
-        // Scroll to bottom
-        c.scrollTop = c.scrollHeight;
-      }, err => {
-        console.error("Logs listener error:", err);
-        showNotification('Error retrieving logs!', 'error');
-      });
-    }
-
-    function setupDownload() {
-      document.getElementById("download-logs").onclick = () => {
-        db.ref("logs").once("value").then(s => {
-          const logs = s.val() || {};
-          let txt = "WASHMS Aircraft Health Event Logs\n";
-          txt += "==================================\n\n";
-
-          Object.keys(logs).sort((a, b) => b - a).forEach(k => {
-            const timestamp = new Date(parseInt(k)).toLocaleString();
-            txt += `[${timestamp}] ${logs[k]}\n`;
-          });
-
-          const blob = new Blob([txt], { type: "text/plain" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `washms_logs_${new Date().toISOString().slice(0, 10)}.txt`;
-          a.click();
-          URL.revokeObjectURL(url);
-
-          showNotification('Logs downloaded successfully!', 'success');
-        }).catch(err => {
-          console.error("Logs download error:", err);
-          showNotification('Failed to download logs!', 'error');
-        });
-      };
-    }
-
-    function initCharts() {
-      // Initialize charts with empty data
-      ["vibration", "temperature", "humidity", "resistance"].forEach(sensor => {
-        const ctx = document.getElementById(`${sensor}-chart`).getContext('2d');
-
-        // Create gradient for chart line
-        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(0, 180, 216, 0.8)');
-        gradient.addColorStop(1, 'rgba(0, 180, 216, 0.1)');
-
-        charts[sensor] = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: Array(maxPoints).fill(''),
-            datasets: [{
-              label: sensor.charAt(0).toUpperCase() + sensor.slice(1),
-              data: Array(maxPoints).fill(0),
-              borderWidth: 2,
-              borderColor: 'var(--accent)',
-              backgroundColor: gradient,
-              tension: 0.3,
-              fill: true,
-              pointRadius: 0
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: maxGauge[sensor],
-                grid: {
-                  color: 'rgba(255, 255, 255, 0.1)'
-                },
-                ticks: {
-                  color: 'rgba(230, 247, 255, 0.7)'
-                }
-              },
-              x: {
-                display: false,
-                grid: {
-                  display: false
-                }
-              }
-            },
-            plugins: {
-              legend: {
-                display: false
-              },
-              tooltip: {
-                mode: 'index',
-                intersect: false
-              }
-            }
-          }
-        });
-      });
-    }
-
-    function updateChart(sensor, val) {
-      const num = parseFloat(val);
-      if (isNaN(num)) return;
-
-      const arr = chartData[sensor];
-      arr.push(num);
-
-      if (arr.length > maxPoints) arr.shift();
-
-      const chart = charts[sensor];
-      chart.data.datasets[0].data = arr;
-      chart.data.labels = Array(arr.length).fill('');
-
-      // Update chart colors based on value thresholds
-      const pct = Math.min(100, Math.abs(num) / maxGauge[sensor] * 100);
-      let gradient;
-
-      if (pct < 60) {
-        gradient = chart.ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(74, 222, 128, 0.8)');
-        gradient.addColorStop(1, 'rgba(74, 222, 128, 0.1)');
-        chart.data.datasets[0].borderColor = 'var(--success)';
-      } else if (pct < 85) {
-        gradient = chart.ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(250, 204, 21, 0.8)');
-        gradient.addColorStop(1, 'rgba(250, 204, 21, 0.1)');
-        chart.data.datasets[0].borderColor = 'var(--warning)';
+      const sysMsg = document.getElementById('system-message');
+      if (ok) {
+        sysMsg.textContent = "System operational. Monitoring aircraft structure...";
+        sysMsg.style.color = "var(--success)";
       } else {
-        gradient = chart.ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(248, 113, 113, 0.8)');
-        gradient.addColorStop(1, 'rgba(248, 113, 113, 0.1)');
-        chart.data.datasets[0].borderColor = 'var(--danger)';
+        sysMsg.textContent = "System disconnected. Check network connection...";
+        sysMsg.style.color = "var(--danger)";
+        showNotification('Connection to Firebase lost!', 'error');
+      }
+    });
+  }
+
+  // Global heartbeat checker
+  function checkHeartbeatStatus() {
+    const now = Date.now();
+    const diff = (now - lastHeartbeatTime) / 1000;
+    const online = hasChanged && diff < 3;
+
+    if (online !== deviceOnline) {
+      deviceOnline = online;
+      const statusTextEl = document.getElementById("system-status");
+      const statusDotEl  = document.getElementById("system-status-dot");
+
+      if (deviceOnline) {
+        statusTextEl.textContent = "System Status: Online";
+        statusDotEl.className = "status-dot normal";
+        showNotification("Device is online! Heartbeat detected.", "success");
+      } else {
+        statusTextEl.textContent = "System Status: Offline";
+        statusDotEl.className = "status-dot critical";
+        showNotification("Device is offline! No heartbeat detected.", "error", 5000);
+      }
+    }
+  }
+
+  function monitorHeartbeat() {
+    db.ref("heartbeat").on("value", snap => {
+      const hb = snap.val();
+      const now = Date.now();
+
+      if (initialHeartbeatValue === null) {
+        initialHeartbeatValue = hb;
+        lastHeartbeatValue   = hb;
+        lastHeartbeatTime    = now;
+        setInterval(checkHeartbeatStatus, 3000);
+        return;
       }
 
-      chart.data.datasets[0].backgroundColor = gradient;
-      chart.update();
-    }
-  </script>
+      if (hb !== lastHeartbeatValue) {
+        lastHeartbeatValue = hb;
+        lastHeartbeatTime = now;
+        hasChanged = true;
+      }
+    });
+  }
+
+  function monitorSensors() {
+    db.ref("sensors").on("value", snap => {
+      const all = snap.val() || {};
+      sensors.forEach(key => {
+        const data = all[key] || {};
+        const num = parseFloat(data.value);
+        const isNum = !isNaN(num);
+
+        const valueEl = document.getElementById(`${key}-value`);
+        const gaugeEl = document.getElementById(`${key}-gauge`);
+        const statusTextEl = document.getElementById(`${key}-status`);
+        const statusDotEl = document.getElementById(`${key}-indicator`);
+
+        valueEl.textContent = isNum ? num.toFixed(2) : "--.--";
+        let statusClass = "disconnected";
+        let displayStatus = data.status ? data.status.charAt(0).toUpperCase() + data.status.slice(1) : "Unknown";
+
+        if (data.status) {
+          const sl = data.status.toLowerCase();
+          if (sl === "normal")      statusClass = "normal";
+          else if (sl === "warning") statusClass = "warning";
+          else if (sl === "critical" || sl === "extreme") statusClass = sl === "extreme" ? "critical-blink" : "critical";
+        }
+
+        statusTextEl.textContent = `Status: ${displayStatus}`;
+        valueEl.className      = `data-value ${statusClass}`;
+        gaugeEl.className      = `gauge-fill ${statusClass}`;
+        statusDotEl.className  = `status-dot ${statusClass}`;
+
+        const pct = isNum ? Math.min(100, Math.abs(num) / maxGauge[key] * 100) : 0;
+        gaugeEl.style.width = pct + "%";
+
+        if (chartData[key] !== undefined && isNum) updateChart(key, num);
+      });
+
+      // corrosion
+      if (all.resistance && !isNaN(parseFloat(all.resistance.value))) {
+        const curr = parseFloat(all.resistance.value);
+        if (initialResistance === null) {
+          initialResistance = curr;
+          document.getElementById('initial-resistance').textContent = `Initial resistance: ${initialResistance.toFixed(2)} Ω`;
+        }
+        const pct = ((curr - initialResistance) / curr) * 100;
+        const elVal   = document.getElementById('corrosion-value');
+        const elGauge = document.getElementById('corrosion-gauge');
+        const elStat  = document.getElementById('corrosion-status');
+        const elDot   = document.getElementById('corrosion-indicator');
+
+        elVal.textContent = pct.toFixed(2);
+        let cls = "normal", txt = "Normal";
+        if (Math.abs(pct) > 10) { cls = "warning"; txt = "Warning"; }
+        if (Math.abs(pct) > 20) { cls = "critical"; txt = "Critical"; }
+        elVal.className   = `data-value ${cls}`;
+        elGauge.className = `gauge-fill ${cls}`;
+        elGauge.style.width = Math.min(100, Math.abs(pct)) + "%";
+        elStat.textContent = `Status: ${txt}`;
+        elDot.className    = `status-dot ${cls}`;
+      }
+    });
+  }
+
+  function monitorLogs() {
+    db.ref("logs").on("value", snap => {
+      const logs = snap.val() || {};
+      const container = document.getElementById("logs");
+      container.innerHTML = "";
+      Object.keys(logs).sort((a,b)=>b-a).slice(0,50).forEach(k => {
+        const div = document.createElement("div"); div.className = "log-entry";
+        const ts  = document.createElement("span"); ts.className = "log-timestamp"; ts.textContent = new Date(+k).toLocaleTimeString();
+        const msg = document.createElement("span"); msg.className = "log-message"; msg.textContent = logs[k];
+        const icon = document.createElement("i"); icon.className = "fas "+(
+          logs[k].includes("✅")?"fa-check-circle":
+          logs[k].includes("⚠️")?"fa-exclamation-triangle":
+          logs[k].includes("🚨")?"fa-bell":"fa-comment-alt"
+        );
+        div.append(icon, document.createTextNode(" "), ts, document.createTextNode(" - "), msg);
+        container.append(div);
+      });
+      container.scrollTop = container.scrollHeight;
+    });
+  }
+
+  function setupDownload() {
+    document.getElementById("download-logs").onclick = () => {
+      db.ref("logs").once("value").then(s => {
+        const logs = s.val() || {};
+        let txt = "WASHMS Aircraft Health Event Logs\n==================================\n\n";
+        Object.keys(logs).sort((a,b)=>b-a).forEach(k => txt += `[${new Date(+k).toLocaleString()}] ${logs[k]}\n`);
+        const blob = new Blob([txt], {type:"text/plain"});
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a"); a.href = url;
+        a.download = `washms_logs_${new Date().toISOString().slice(0,10)}.txt`;
+        a.click(); URL.revokeObjectURL(url);
+        showNotification('Logs downloaded successfully!', 'success');
+      }).catch(()=> showNotification('Failed to download logs!', 'error'));
+    };
+  }
+
+  function initCharts() {
+    ["vibration","temperature","humidity","resistance"].forEach(sensor => {
+      const ctx = document.getElementById(`${sensor}-chart`).getContext('2d');
+      const gradient = ctx.createLinearGradient(0,0,0,300);
+      gradient.addColorStop(0, 'rgba(0,180,216,0.8)');
+      gradient.addColorStop(1, 'rgba(0,180,216,0.1)');
+      charts[sensor] = new Chart(ctx, {
+        type: 'line',
+        data: { labels: Array(maxPoints).fill(''), datasets: [{
+          label: sensor.charAt(0).toUpperCase()+sensor.slice(1),
+          data: Array(maxPoints).fill(0),
+          borderWidth:2, tension:0.3, fill:true, pointRadius:0,
+          borderColor:'var(--accent)', backgroundColor:gradient
+        }]},
+        options: { responsive:true, maintainAspectRatio:false, animation:false,
+          scales:{ y:{ beginAtZero:true, max:maxGauge[sensor], grid:{color:'rgba(255,255,255,0.1)'}, ticks:{color:'rgba(230,247,255,0.7)'} }, x:{ display:false, grid:{display:false} } },
+          plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false }}
+        }
+      });
+    });
+  }
+
+  function updateChart(sensor,val) {
+    const num = parseFloat(val); if(isNaN(num)) return;
+    const arr = chartData[sensor]; arr.push(num); if(arr.length>maxPoints) arr.shift();
+    const chart = charts[sensor]; chart.data.datasets[0].data = arr; chart.data.labels = Array(arr.length).fill('');
+    const pct = Math.min(100, Math.abs(num)/maxGauge[sensor]*100);
+    let gradient;
+    if(pct<60) gradient = chart.ctx.createLinearGradient(0,0,0,300), gradient.addColorStop(0,'rgba(74,222,128,0.8)'), gradient.addColorStop(1,'rgba(74,222,128,0.1)'), chart.data.datasets[0].borderColor='var(--success)';
+    else if(pct<85) gradient = chart.ctx.createLinearGradient(0,0,0,300), gradient.addColorStop(0,'rgba(250,204,21,0.8)'), gradient.addColorStop(1,'rgba(250,204,21,0.1)'), chart.data.datasets[0].borderColor='var(--warning)';
+    else gradient = chart.ctx.createLinearGradient(0,0,0,300), gradient.addColorStop(0,'rgba(248,113,113,0.8)'), gradient.addColorStop(1,'rgba(248,113,113,0.1)'), chart.data.datasets[0].borderColor='var(--danger)';
+    chart.data.datasets[0].backgroundColor = gradient; chart.update();
+  }
+</script>
+
 </body>
 </html>
