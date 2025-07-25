@@ -193,7 +193,7 @@
 .card {
   background: var(--card-bg);
   border-radius: 15px;
-  padding: 30px; /* Increased from 30px */
+  padding: 50px; /* Increased from 30px */
   box-shadow: 0 8px 32px rgba(0, 46, 92, 0.3);
   border: 1px solid rgba(0, 180, 216, 0.2);
   backdrop-filter: blur(4px);
@@ -646,20 +646,21 @@
       </div>
     </header>
 
+
     <div class="sensor-grid">
-      <!-- Strain Card -->
+      <!-- Force Card -->
       <div class="card">
-        <h2 class="card-title"><i class="fas fa-weight-hanging"></i> Strain</h2>
+        <h2 class="card-title"><i class="fas fa-weight-hanging"></i> Force</h2>
         <div class="data-display">
-          <div class="data-value disconnected" id="strain-value">--.--</div>
-          <div class="data-label">microstrain (µε)</div>
+          <div class="data-value disconnected" id="force-value">--.--</div>
+          <div class="data-label">Newtons (N)</div>
         </div>
         <div class="gauge-container">
-          <div class="gauge-fill disconnected" id="strain-gauge" style="width: 0%"></div>
+          <div class="gauge-fill disconnected" id="force-gauge" style="width: 0%"></div>
         </div>
         <div class="status-indicator-card">
-          <div class="status-dot disconnected" id="strain-indicator"></div>
-          <span id="strain-status">Status: Sensor Disconnected</span>
+          <div class="status-dot disconnected" id="force-indicator"></div>
+          <span id="force-status">Status: Sensor Disconnected</span>
         </div>
       </div>
 
@@ -837,8 +838,8 @@
     <div id="notification-message">Connecting to Firebase...</div>
   </div>
 
- <script>
-  // Firebase configuration & init
+  <script>
+  // Firebase configuration & init (unchanged)
   const firebaseConfig = {
     apiKey: "AIzaSyDAy7_BMNnjzVbzff7OhaIF1EgeqMwSNJM",
     authDomain: "washms-d671a.firebaseapp.com",
@@ -852,21 +853,21 @@
   const db = firebase.database();
 
   // Settings
-  const sensors   = ["strain","vibration","temperature","humidity","voltage","current","resistance"];
-  const maxGauge  = { strain:100, vibration:5, temperature:100, humidity:100, voltage:5, current:200, resistance:10 };
+  const sensors   = ["force","vibration","temperature","humidity","voltage","current","resistance"];
+  const maxGauge  = { force:100, vibration:5, temperature:100, humidity:100, voltage:5, current:200, resistance:10 };
   const chartData = { vibration:[], temperature:[], humidity:[], resistance:[] };
   const charts    = {};
   const maxPoints = 20;
 
-  // Heartbeat tracking
+  // Heartbeat tracking unchanged
   let lastHeartbeatValue = null;
   let lastHeartbeatTime  = null;
   let deviceOnline       = null;
 
-  // Corrosion tracking
+  // Corrosion tracking unchanged
   let initialResistance  = null;
 
-  // Notification refs
+  // Notification refs unchanged
   const notification        = document.getElementById('notification');
   const notificationMessage = document.getElementById('notification-message');
 
@@ -958,7 +959,7 @@
     });
   }
 
-  function monitorSensors() {
+   function monitorSensors() {
     db.ref("sensors").on("value", snap => {
       const all = snap.val() || {};
       sensors.forEach(key => {
@@ -966,6 +967,7 @@
         const num  = parseFloat(data.value);
         const isNum = !isNaN(num);
 
+        // CHANGED: key 'force' will now map to force-value, force-gauge, etc.
         const valueEl     = document.getElementById(`${key}-value`);
         const gaugeEl     = document.getElementById(`${key}-gauge`);
         const statusTextE = document.getElementById(`${key}-status`);
@@ -974,12 +976,12 @@
         valueEl.textContent = isNum ? num.toFixed(2) : "--.--";
         let statusClass = "disconnected", display = "Unknown";
         if (data.status) {
-          display = data.status.charAt(0).toUpperCase() + data.status.slice(1);
           const sl = data.status.toLowerCase();
           if (sl === "normal")       statusClass = "normal";
           else if (sl === "warning") statusClass = "warning";
           else if (sl === "critical") statusClass = "critical";
           else if (sl === "extreme") statusClass = "critical-blink";
+          display = data.status.charAt(0).toUpperCase() + data.status.slice(1);
         }
 
         statusTextE.textContent = `Status: ${display}`;
@@ -987,13 +989,13 @@
         gaugeEl.className       = `gauge-fill ${statusClass}`;
         statusDotE.className    = `status-dot ${statusClass}`;
 
+        // CHANGED: using maxGauge[key] will use force:100 for force sensor
         const pct = isNum ? Math.min(100, Math.abs(num) / maxGauge[key] * 100) : 0;
         gaugeEl.style.width = pct + "%";
 
-        if (chartData[key] !== undefined && isNum) {
-          updateChart(key, num);
-        }
+        if (chartData[key] !== undefined && isNum) updateChart(key, num);
       });
+
 
       // Corrosion monitoring
       if (all.resistance && !isNaN(parseFloat(all.resistance.value))) {
