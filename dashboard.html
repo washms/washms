@@ -627,7 +627,7 @@
       <i class="fas fa-satellite"></i>
     </div>
     <div class="floating-aircraft" style="top: 70%; left: -15%; animation-delay: 7s; animation-duration: 30s;">
-      <i class="fas fa-rocket"></极i>
+      <i class="fas fa-rocket"></i>
     </div>
   </div>
 
@@ -645,7 +645,6 @@
         </div>
       </div>
     </header>
-
 
     <div class="sensor-grid">
       <!-- Force Card -->
@@ -712,12 +711,12 @@
         </div>
       </div>
 
-      <!-- Voltage Card -->
+      <!-- Crack Detection Card (replaces Voltage) -->
       <div class="card">
-        <h2 class="card-title"><i class="fas fa-bolt"></i> Voltage</h2>
+        <h2 class="card-title"><i class="fas fa-exclamation-triangle"></i> Crack Detection</h2>
         <div class="data-display">
-          <div class="data-value disconnected" id="voltage-value">--.--</div>
-          <div class="data-label">Volts (V)</div>
+          <div class="data-value disconnected" id="voltage-value" style="font-size:3.5rem">--.--</div>
+          <div class="data-label">Crack Status</div>
         </div>
         <div class="gauge-container">
           <div class="gauge-fill disconnected" id="voltage-gauge" style="width: 0%"></div>
@@ -744,7 +743,7 @@
         </div>
       </div>
 
-      <!-- Resistance Card (wider) -->
+      <!-- Resistance Card -->
       <div class="card">
         <h2 class="card-title"><i class="fas fa-shield-alt"></i> Resistance</h2>
         <div class="data-display">
@@ -760,7 +759,7 @@
         </div>
       </div>
 
-      <!-- Corrosion Monitoring Card (new) -->
+      <!-- Corrosion Monitoring Card -->
       <div class="card">
         <h2 class="card-title"><i class="fas fa-rust"></i> Corrosion Monitoring</h2>
         <div class="data-display">
@@ -859,15 +858,15 @@
   const charts    = {};
   const maxPoints = 20;
 
-  // Heartbeat tracking unchanged
+  // Heartbeat tracking
   let lastHeartbeatValue = null;
   let lastHeartbeatTime  = null;
   let deviceOnline       = null;
 
-  // Corrosion tracking unchanged
+  // Corrosion tracking
   let initialResistance  = null;
 
-  // Notification refs unchanged
+  // Notification refs
   const notification        = document.getElementById('notification');
   const notificationMessage = document.getElementById('notification-message');
 
@@ -888,7 +887,6 @@
     showNotification('Dashboard initialized. Connecting to Firebase...', 'success', 2500);
   });
 
-  // Updated heartbeat logic
   function monitorHeartbeat() {
     const statusTextEl = document.getElementById("system-status");
     const statusDotEl  = document.getElementById("system-status-dot");
@@ -898,17 +896,13 @@
     db.ref("heartbeat").on("value", snap => {
       const hb  = snap.val();
       const now = Date.now();
-
       if (lastHeartbeatValue === null) {
         lastHeartbeatValue = hb;
         lastHeartbeatTime  = now;
-        // initial check after 5s
         setTimeout(checkHeartbeatStatus, 5000);
-        // subsequent checks every 5s
         setInterval(checkHeartbeatStatus, 5000);
         return;
       }
-
       if (hb !== lastHeartbeatValue) {
         lastHeartbeatValue = hb;
         lastHeartbeatTime  = now;
@@ -938,13 +932,12 @@
     }
   }
 
-  // Original utilities
   function createParticles() {
     const container = document.querySelector('.particles');
     for (let i = 0; i < 15; i++) {
       const span = document.createElement('span');
       span.style.setProperty('--i', Math.floor(Math.random() * 10 + 5));
-      span.style.left = Math.random() * 100 + '%';
+      span.style.left = `${Math.random() * 100}%`;
       container.appendChild(span);
     }
   }
@@ -959,7 +952,7 @@
     });
   }
 
-   function monitorSensors() {
+  function monitorSensors() {
     db.ref("sensors").on("value", snap => {
       const all = snap.val() || {};
       sensors.forEach(key => {
@@ -967,7 +960,6 @@
         const num  = parseFloat(data.value);
         const isNum = !isNaN(num);
 
-        // CHANGED: key 'force' will now map to force-value, force-gauge, etc.
         const valueEl     = document.getElementById(`${key}-value`);
         const gaugeEl     = document.getElementById(`${key}-gauge`);
         const statusTextE = document.getElementById(`${key}-status`);
@@ -989,15 +981,25 @@
         gaugeEl.className       = `gauge-fill ${statusClass}`;
         statusDotE.className    = `status-dot ${statusClass}`;
 
-        // CHANGED: using maxGauge[key] will use force:100 for force sensor
         const pct = isNum ? Math.min(100, Math.abs(num) / maxGauge[key] * 100) : 0;
-        gaugeEl.style.width = pct + "%";
+        gaugeEl.style.width = `${pct}%`;
+
+        if (key === "voltage") {
+          const crack = all.crackDetected === true;
+          const cls = crack ? "critical" : "normal";
+          valueEl.textContent     = crack ? "Detected" : "None";
+          statusTextE.textContent = crack ? "Crack: Detected" : "Crack: None";
+          valueEl.className       = `data-value ${cls}`;
+          gaugeEl.className       = `gauge-fill ${cls}`;
+          gaugeEl.style.width     = crack ? "100%" : "0%";
+          statusDotE.className    = `status-dot ${cls}`;
+          if (crack) showNotification("Crack detected!", "error", 5000);
+        }
 
         if (chartData[key] !== undefined && isNum) updateChart(key, num);
       });
 
-
-      // Corrosion monitoring
+      // Corrosion monitoring (updated formula)
       if (all.resistance && !isNaN(parseFloat(all.resistance.value))) {
         const curr = parseFloat(all.resistance.value);
         if (initialResistance === null) {
@@ -1005,7 +1007,7 @@
           document.getElementById('initial-resistance').textContent =
             `Initial resistance: ${initialResistance.toFixed(2)} Ω`;
         }
-        const pct = ((curr - initialResistance) / curr) * 100;
+        const pct = ((curr - initialResistance) / (curr + initialResistance)) * 100;
         const elVal   = document.getElementById('corrosion-value');
         const elGauge = document.getElementById('corrosion-gauge');
         const elStat  = document.getElementById('corrosion-status');
@@ -1013,38 +1015,55 @@
 
         elVal.textContent    = pct.toFixed(2);
         let cls = "normal", txt = "Normal";
-        if (Math.abs(pct) > 10) cls = "warning",   txt = "Warning";
-        if (Math.abs(pct) > 20) cls = "critical",  txt = "Critical";
+        if (Math.abs(pct) > 10) cls = "warning", txt = "Warning";
+        if (Math.abs(pct) > 20) cls = "critical", txt = "Critical";
 
-        elVal.className    = `data-value ${cls}`;
-        elGauge.className  = `gauge-fill ${cls}`;
-        elGauge.style.width= Math.min(100, Math.abs(pct)) + "%";
-        elStat.textContent = `Status: ${txt}`;
-        elDot.className    = `status-dot ${cls}`;
+        elVal.className       = `data-value ${cls}`;
+        elGauge.className     = `gauge-fill ${cls}`;
+        elGauge.style.width   = `${Math.min(100, Math.abs(pct))}%`;
+        elStat.textContent    = `Status: ${txt}`;
+        elDot.className       = `status-dot ${cls}`;
       }
     });
   }
 
+  // monitorLogs updated to show only datestamp
   function monitorLogs() {
     db.ref("logs").on("value", snap => {
-      const logs = snap.val() || {};
+      const logsRoot = snap.val() || {};
       const container = document.getElementById("logs");
       container.innerHTML = "";
-      Object.keys(logs)
-        .sort((a,b) => b - a)
-        .slice(0,50)
-        .forEach(k => {
-          const div = document.createElement("div");
+
+      Object.keys(logsRoot)
+        .sort((a, b) => (logsRoot[b].timestamp || 0) - (logsRoot[a].timestamp || 0))
+        .slice(0, 50)
+        .forEach(key => {
+          const entry = logsRoot[key];
+          const div   = document.createElement("div");
           div.className = "log-entry";
-          const ts  = document.createElement("span");
-          ts.className  = "log-timestamp";
-          ts.textContent = new Date(+k).toLocaleTimeString();
-          const msg = document.createElement("span");
-          msg.className   = "log-message";
-          msg.textContent = logs[k];
-          div.append(ts, document.createTextNode(" - "), msg);
+
+          const dateSpan = document.createElement("span");
+          dateSpan.className = "log-date";
+          dateSpan.textContent = entry.datestamp || "";
+
+          const typeSpan = document.createElement("span");
+          typeSpan.className = "log-type";
+          typeSpan.textContent = entry.type
+            ? `[${entry.type}]`
+            : "";
+
+          const msgSpan = document.createElement("span");
+          msgSpan.className = "log-message";
+          msgSpan.textContent = entry.message || "";
+
+          div.append(
+            dateSpan, document.createTextNode(" "),
+            typeSpan, document.createTextNode(" "),
+            msgSpan
+          );
           container.append(div);
         });
+
       container.scrollTop = container.scrollHeight;
     });
   }
@@ -1054,9 +1073,12 @@
       db.ref("logs").once("value").then(s => {
         const logs = s.val() || {};
         let txt = "WASHMS Aircraft Health Event Logs\n==================================\n\n";
-        Object.keys(logs).sort((a,b)=>b-a).forEach(k => {
-          txt += `[${new Date(+k).toLocaleString()}] ${logs[k]}\n`;
-        });
+        Object.keys(logs)
+          .sort((a,b)=> (logs[b].timestamp||0) - (logs[a].timestamp||0))
+          .forEach(k => {
+            const e = logs[k];
+            txt += `[${e.datestamp||""}] [${e.type||""}] ${e.message||""}\n`;
+          });
         const blob = new Blob([txt], {type:"text/plain"});
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement("a");
@@ -1135,7 +1157,6 @@
     chart.update();
   }
 </script>
-
 
 </body>
 </html>
